@@ -1,19 +1,20 @@
 blueprint:
-  name: Unavailable to Notification 
+  name: Notify when entity is unavailable for too long
   description: >
-    Sends a notification if an entity remains unavailable or unknown
-    longer than the configured time.
+    Sends a notification if an entity stays in unavailable or unknown
+    state longer than the configured time. Uses an action picker so you
+    can directly select a notify.mobile_app action or anything else.
   domain: automation
 
   input:
+
     target_entity:
       name: Entity to monitor
       selector:
         entity: {}
 
     timeout_hours:
-      name: Hours before notification
-      description: How long the entity must stay unavailable/unknown
+      name: Hours before triggering
       default: 2
       selector:
         number:
@@ -22,35 +23,37 @@ blueprint:
           step: 0.1
           mode: box
 
-    notify_service:
-      name: Notify service
-      description: Example notify.mobile_app_phone
-      default: notify.notify
+    notify_action:
+      name: Notification action
+      description: >
+        Pick any action (example: notify.mobile_app_yourphone).
+        A default message template is already included.
+      default:
+        - service: notify.notify
+          data:
+            title: "Device offline"
+            message: >
+              ⚠️ {{ state_attr(target_entity, 'friendly_name') or target_entity }}
+              has been unavailable for too long.
       selector:
-        text: {}
-
-    message:
-      name: Notification message
-      default: "⚠️ The entity {{ states[input.target_entity].name }} has been offline for too long"
-      selector:
-        text: {}
+        action: {}
 
 mode: restart
 
 trigger:
-  - platform: state
-    entity_id: !input target_entity
-    to: "unavailable"
-    for:
-      hours: !input timeout_hours
 
   - platform: state
     entity_id: !input target_entity
-    to: "unknown"
+    to:
+      - "unavailable"
+      - "unknown"
     for:
       hours: !input timeout_hours
 
 action:
-  - service: !input notify_service
-    data:
-      message: !input message
+
+  - variables:
+      target_entity: !input target_entity
+
+  - choose: []
+    default: !input notify_action
